@@ -58,13 +58,23 @@ export function extraSecurityHeaders() {
 }
 
 /**
+ * Every origin this app is actually served from: the canonical one, plus any
+ * alias the platform also answers on. All of them are our own page, which is
+ * the only thing CSRF is asking about.
+ */
+export function isOwnOrigin(origin: string): boolean {
+  const { APP_ORIGIN, APP_ORIGIN_ALIASES } = env();
+  return origin === APP_ORIGIN || APP_ORIGIN_ALIASES.includes(origin);
+}
+
+/**
  * Same-origin only. There is no cross-origin client, so rather than emitting
  * permissive CORS headers we simply refuse anything whose Origin is not ours.
  */
 export function sameOriginOnly() {
   return (req: Request, res: Response, next: NextFunction) => {
     const origin = req.get('origin');
-    if (origin && origin !== env().APP_ORIGIN) {
+    if (origin && !isOwnOrigin(origin)) {
       next(forbidden('CSRF_FAILED'));
       return;
     }
@@ -98,10 +108,9 @@ export function csrfGuard() {
       return;
     }
 
-    const appOrigin = env().APP_ORIGIN;
     const origin = req.get('origin');
     if (origin) {
-      if (origin !== appOrigin) {
+      if (!isOwnOrigin(origin)) {
         next(forbidden('CSRF_FAILED'));
         return;
       }
@@ -112,7 +121,7 @@ export function csrfGuard() {
     const referer = req.get('referer');
     if (referer) {
       try {
-        if (new URL(referer).origin !== appOrigin) {
+        if (!isOwnOrigin(new URL(referer).origin)) {
           next(forbidden('CSRF_FAILED'));
           return;
         }

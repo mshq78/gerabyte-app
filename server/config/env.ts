@@ -24,6 +24,23 @@ const envSchema = z
 
     /** Exact origin the SPA is served from; CSRF and CORS are checked against it. */
     APP_ORIGIN: z.url(),
+    /**
+     * Other origins this same app is served from, comma separated.
+     *
+     * A platform gives one deployment several hostnames. Every one of them
+     * serves our own page, so a request carrying one of them as its Origin is
+     * same-origin in the only sense CSRF cares about. This is an explicit
+     * list, never a wildcard: `*.vercel.app` would trust anyone's deployment.
+     */
+    APP_ORIGIN_ALIASES: z
+      .string()
+      .optional()
+      .transform((v) =>
+        (v ?? '')
+          .split(',')
+          .map((o) => o.trim().replace(/\/$/, ''))
+          .filter((o) => o.length > 0)
+      ),
 
     /** Secret for the OTP HMAC. Rotating it invalidates every code in flight. */
     OTP_HMAC_SECRET: z.string().min(32, 'OTP_HMAC_SECRET must be at least 32 characters'),

@@ -25,6 +25,33 @@ function adoptPreviewOrigin(): void {
 
 adoptPreviewOrigin();
 
+/**
+ * Vercel answers on several hostnames for the same deployment: the project
+ * domain, the team-scoped alias the dashboard links to, and the per-branch
+ * URL. All of them serve this app, so a request from any of them is
+ * same-origin — but CSRF compares against one exact string, so the others
+ * were being refused with a 403 that looks, from the browser, like the login
+ * button simply not working.
+ *
+ * Only hostnames the platform tells us are ours. Never a wildcard: anyone can
+ * deploy to *.vercel.app.
+ */
+function adoptPlatformAliases(): void {
+  const aliases = [
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_URL,
+  ]
+    .filter((host): host is string => Boolean(host))
+    .map((host) => `https://${host}`);
+
+  if (aliases.length === 0) return;
+  const existing = process.env.APP_ORIGIN_ALIASES ? process.env.APP_ORIGIN_ALIASES.split(',') : [];
+  process.env.APP_ORIGIN_ALIASES = [...new Set([...existing, ...aliases])].join(',');
+}
+
+adoptPlatformAliases();
+
 // Environment validation runs at module load, so a misconfigured deployment
 // fails on the first cold start rather than serving broken requests.
 loadEnv();
